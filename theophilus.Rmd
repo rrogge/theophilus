@@ -1,0 +1,112 @@
+---
+title: "Theophilus"
+author: "Ralph Rogge (RRO)"
+date: "4/28/2018"
+output: html_document
+---
+
+Clean up
+```{r}
+rm(list=ls())
+```
+
+Load external libraries
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+Crater center
+```{r}
+center <- list(l = 26.28, b = -11.45)
+```
+
+Function to convert degrees to rad.
+```{r}
+# d - degrees.
+to.rad <- function(d) return(d*pi/180)
+```
+
+Function to calculate distance on a sphere (Moon radius as default value).
+```{r}
+# l1 - Longitude of point 1
+# b1 - Latitude of point 1
+# l2 - Longitude of point 2
+# b2 - Latitude of point 2
+# r - Sphere radius
+distance <- function(l1, b1, l2, b2, r=1738) {
+    sin2 <- sin(to.rad(b1)) * sin(to.rad(b2))
+    cos2 <- cos(to.rad(b1)) * cos(to.rad(b2))
+    d <- r *  acos(sin2 + cos2 * cos(to.rad(l2-l1)))
+    return(d)
+}
+```
+
+Read height profile from file (East/West)
+```{r}
+raw <- read.csv("input/EW.txt", skip=4)
+
+data.1 <- raw %>%
+    rename(a = position) %>%
+    rename(h = GLD100) %>%
+    rename(l = lon) %>%
+    rename(b = lat) %>%
+    mutate(direction = "EW") %>%
+    select(l, b, h, a, direction)
+```
+
+Read and height profile from file (North/South)
+```{r}
+raw <- read.csv("input/NS.txt", skip=4)
+
+data.2 <- raw %>%
+    rename(a = position) %>%
+    rename(h = GLD100) %>%
+    rename(l = lon) %>%
+    rename(b = lat) %>%
+    mutate(direction = "NS") %>%
+    select(l, b, h, a, direction)
+```
+
+Distance relative to crater center
+```{r}
+dr <- distance(data.1$l, data.1$b, center$l, center$b)
+data.1$dr <- sign(data.1$a - data.1$a[which.min(dr)]) * dr
+
+dr <- distance(data.2$l, data.2$b, center$l, center$b)
+data.2$dr <- sign(data.2$a - data.2$a[which.min(dr)]) * dr
+```
+
+Combine profile data
+```{r}
+data <- rbind(data.1, data.2)
+```
+
+Height relative to lowest point with crater
+```{r}
+index <- which.min(data$h)
+data$dh <- data$h - data$h[index]
+```
+
+Highest point of central peak
+```{r}
+df <- data[data$dr>-25&data$dr<25,]
+index <- which.max(df$dh)
+df[index,]
+```
+
+Plot profiles
+```{r}
+ggplot(data) +
+    geom_line(aes(dr, dh, color=direction)) +
+    labs(x="Distance from Center [km]", y="Height above Crater Base [m]", title="Height Profile") +
+    theme_bw()
+```
+
+Write profiles to file
+```{r}
+if (!dir.exists("output")) dir.create("output")
+df <- data %>% select(dr, dh, h, direction)
+write.csv(df, "output/profiles.csv", row.names=FALSE)
+```
+
