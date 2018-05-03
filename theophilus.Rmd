@@ -42,57 +42,61 @@ distance <- function(l1, b1, l2, b2, r=1738) {
 }
 ```
 
-Read height profile from file (East/West)
+Function to read and preprocess height profile data from file
 ```{r}
-raw <- read.csv("input/EW.txt", skip=4)
-
-data.1 <- raw %>%
-    rename(a = position) %>%
-    rename(h = GLD100) %>%
-    rename(l = lon) %>%
-    rename(b = lat) %>%
-    mutate(direction = "EW") %>%
-    select(l, b, h, a, direction)
+# file - File name or connection.
+# direction - (String) Tag to identify profile.
+read.profile <- function(file, direction) {
+    raw <- read.csv(file, skip=4)
+    df <- raw %>%
+        rename(a = position) %>%
+        rename(h = GLD100) %>%
+        rename(l = lon) %>%
+        rename(b = lat) %>%
+        mutate(direction = direction) %>%
+        select(l, b, h, a, direction)
+    return(df)
+}
 ```
 
-Read and height profile from file (North/South)
+Read height profiles from file
 ```{r}
-raw <- read.csv("input/NS.txt", skip=4)
-
-data.2 <- raw %>%
-    rename(a = position) %>%
-    rename(h = GLD100) %>%
-    rename(l = lon) %>%
-    rename(b = lat) %>%
-    mutate(direction = "NS") %>%
-    select(l, b, h, a, direction)
+profile.000_180 <- read.profile("input/profile_000-180.txt", direction="000-180")
+profile.090_270 <- read.profile("input/profile_090-270.txt", direction="090-270")
 ```
 
 Distance relative to crater center
 ```{r}
-dr <- distance(data.1$l, data.1$b, center$l, center$b)
-data.1$dr <- sign(data.1$a - data.1$a[which.min(dr)]) * dr
+dr <- distance(profile.000_180$l, profile.000_180$b, center$l, center$b)
+profile.000_180$dr <- sign(profile.000_180$a - profile.000_180$a[which.min(dr)]) * dr
 
-dr <- distance(data.2$l, data.2$b, center$l, center$b)
-data.2$dr <- sign(data.2$a - data.2$a[which.min(dr)]) * dr
+dr <- distance(profile.090_270$l, profile.090_270$b, center$l, center$b)
+profile.090_270$dr <- sign(profile.090_270$a - profile.090_270$a[which.min(dr)]) * dr
 ```
 
 Combine profile data
 ```{r}
-data <- rbind(data.1, data.2)
+data <-rbind(profile.000_180, profile.090_270)
 ```
 
-Height relative to lowest point with crater
+Search radius for lowest and highest point within the crater
 ```{r}
-index <- which.min(data$h)
-data$dh <- data$h - data$h[index]
+radius <- 25 # km
 ```
 
-Highest point of central peak
+Height relative to lowest point within crater
 ```{r}
-df <- data[data$dr>-25&data$dr<25,]
-index <- which.max(df$dh)
-df[index,]
+inside <- data[abs(data$dr) < radius,]
+index <- which.min(inside$h)
+data$dh <- data$h - inside$h[index]
+```
+
+Lowest/highest point of central peak
+```{r}
+inside <- data[abs(data$dr) < radius,]
+inside[which.min(inside$dh),]
+inside[which.max(inside$dh),]
+```
 ```
 
 Plot profiles
