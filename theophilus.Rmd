@@ -18,7 +18,7 @@ library(ggplot2)
 
 Crater center
 ```{r}
-center <- list(l = 26.28, b = -11.45)
+crater <- list(center=list(l=26.28, b=-11.45), radius=50)
 ```
 
 Function to convert degrees to rad.
@@ -67,50 +67,31 @@ profile.090_270 <- read.profile("input/profile_090-270.txt", direction="090-270"
 
 Distance relative to crater center
 ```{r}
-dr <- distance(profile.000_180$l, profile.000_180$b, center$l, center$b)
-profile.000_180$dr <- sign(profile.000_180$a - profile.000_180$a[which.min(dr)]) * dr
+r <- distance(profile.000_180$l, profile.000_180$b, crater$center$l, crater$center$b)
+profile.000_180$r <- sign(profile.000_180$a - profile.000_180$a[which.min(r)]) * r
 
-dr <- distance(profile.090_270$l, profile.090_270$b, center$l, center$b)
-profile.090_270$dr <- sign(profile.090_270$a - profile.090_270$a[which.min(dr)]) * dr
+r <- distance(profile.090_270$l, profile.090_270$b, crater$center$l, crater$center$b)
+profile.090_270$r <- sign(profile.090_270$a - profile.090_270$a[which.min(r)]) * r
 ```
 
 Combine profile data
 ```{r}
-data <-rbind(profile.000_180, profile.090_270)
-```
-
-Search radius for lowest and highest point within the crater
-```{r}
-radius <- 25 # km
-```
-
-Height relative to lowest point within crater
-```{r}
-inside <- data[abs(data$dr) < radius,]
-index <- which.min(inside$h)
-data$dh <- data$h - inside$h[index]
-```
-
-Lowest/highest point of central peak
-```{r}
-inside <- data[abs(data$dr) < radius,]
-inside[which.min(inside$dh),]
-inside[which.max(inside$dh),]
-```
+data <-rbind(profile.000_180, profile.090_270) %>%
+    mutate(direction = as.factor(direction))
 ```
 
 Plot profiles
 ```{r}
 ggplot(data) +
-    geom_line(aes(dr, dh, color=direction)) +
-    labs(x="Distance from Center [km]", y="Height above Crater Base [m]", title="Height Profile") +
+    geom_line(aes(r, h, color=direction)) +
+    labs(x="Distance from Center [km]", y="Height [m]", title="Height Profile") +
     theme_bw()
 ```
 
 Write profiles to file
 ```{r}
 if (!dir.exists("output")) dir.create("output")
-df <- data %>% select(dr, dh, h, direction)
+df <- data %>% select(r, h, direction)
 write.csv(df, "output/profiles.csv", row.names=FALSE)
 ```
 
