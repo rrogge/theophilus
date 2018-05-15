@@ -80,6 +80,12 @@ data <-rbind(profile.000_180, profile.090_270) %>%
     mutate(direction = as.factor(direction))
 ```
 
+Find central peak
+```{r}
+inside <- data[abs(data$r) < crater$radius/2,]
+inside[which.max(inside$h),] %>% select(l,b,r,h)
+```
+
 Plot profiles
 ```{r}
 ggplot(data) +
